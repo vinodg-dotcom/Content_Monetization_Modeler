@@ -3,6 +3,7 @@ YouTube Ad Revenue Prediction - Linear Regression Models
 ========================================================
 Training 5 Linear Regression Models with Enhanced Feature Engineering
 (Fixed: Removed data leakage + One-Hot Encoding + 11 engineered features)
+(Improved: Dynamic data leakage detection - NOT hard-coded)
 """
 
 import pandas as pd
@@ -81,13 +82,20 @@ if len(numeric_cols) > 1:
         correlations_with_target = correlation['ad_revenue_usd'].sort_values(ascending=False)
         print(correlations_with_target)
         
-        # Identify data leakage
+        # ============================================================
+        # IMPROVED: DYNAMIC DATA LEAKAGE DETECTION
+        # ============================================================
         print("\n⚠️  DATA LEAKAGE DETECTION:")
+        
+        # Step 1: Find features with suspiciously high correlation
         high_corr_features = correlations_with_target[
             (correlations_with_target > 0.95) | (correlations_with_target < -0.95)
         ]
+        
+        # Step 2: Remove self-correlation (ad_revenue_usd with itself)
         high_corr_features = high_corr_features[high_corr_features.index != 'ad_revenue_usd']
         
+        # Step 3: Check if any leaky features found
         if len(high_corr_features) > 0:
             print("   Features with suspiciously high correlation (>0.95):")
             for feature, corr in high_corr_features.items():
@@ -276,22 +284,39 @@ print("\n💾 Cleaned data saved: data/cleaned_data.csv")
 
 
 # ============================================================
-# STEP 6: REMOVE DATA LEAKAGE FEATURES
+# STEP 6: REMOVE DATA LEAKAGE (IMPROVED - DYNAMIC DETECTION)
 # ============================================================
 print("\n" + "="*60)
 print("🔒 PREVENTING DATA LEAKAGE")
 print("="*60)
 
-# Remove watch_time_minutes - it has 0.99 correlation with target
-if 'watch_time_minutes' in df.columns:
-    print("⚠️  Removing 'watch_time_minutes':")
-    print("   Reason: Extremely high correlation (0.988874) with ad_revenue_usd")
-    print("   This feature is likely used to calculate the target variable")
-    print("   Keeping it would result in unrealistic 'perfect' predictions")
-    df = df.drop(columns=['watch_time_minutes'])
-    print("   ✅ Feature removed successfully")
+# DYNAMIC APPROACH: Extract auto-detected leaky features from correlation analysis
+# (NOT hard-coded feature names)
+leaky_features = high_corr_features.index.tolist()
+
+if len(leaky_features) > 0:
+    print(f"\n⚠️  Found {len(leaky_features)} leaky feature(s) to remove:")
+    print("   These have extremely high correlation with the target variable")
+    print("   They are likely used in the target calculation, not predictive features\n")
+    
+    for feature in leaky_features:
+        corr_value = correlations_with_target[feature]
+        print(f"   • {feature}")
+        print(f"     └─ Correlation: {corr_value:.6f} (exceeds 0.95 threshold)")
+    
+    print(f"\n   Reason for removal:")
+    print(f"   • Features with |correlation| > 0.95 are suspicious")
+    print(f"   • They likely CALCULATE the target, not PREDICT it")
+    print(f"   • Using them creates unrealistic 'perfect' model performance")
+    print(f"   • In production, these features wouldn't be available at prediction time")
+    
+    df = df.drop(columns=leaky_features)
+    
+    print(f"\n✅ Successfully removed {len(leaky_features)} leaky feature(s)")
+    print(f"   Remaining columns: {len(df.columns)}")
 else:
-    print("✅ No data leakage features detected")
+    print("\n✅ No data leakage features detected!")
+    print("   All numeric features appear to be legitimate predictors")
 
 
 # ============================================================
@@ -647,7 +672,7 @@ print("   5. ✅ SGD Regressor - Gradient Descent optimization")
 
 print("\n🛠️ TECHNIQUES IMPLEMENTED:")
 print("   ✅ 1. EDA (Exploratory Data Analysis)")
-print("   ✅ 2. Data Leakage Detection & Prevention")
+print("   ✅ 2. Data Leakage Detection & Prevention (DYNAMIC - NOT hard-coded)")
 print("   ✅ 3. Outlier Detection (IQR method)")
 print("   ✅ 4. Missing Value Handling")
 print("   ✅ 5. Feature Engineering (11 new features)")
@@ -661,7 +686,7 @@ print("   ✅ 9. Model Evaluation (R², RMSE, MAE, MSE)")
 print("   ✅ 10. Data Visualization (Matplotlib, Seaborn)")
 
 print("\n🔒 DATA QUALITY:")
-print("   ✅ Removed 'watch_time_minutes' (data leakage)")
+print(f"   ✅ Removed {len(leaky_features)} leaky feature(s) (auto-detected, not hard-coded)")
 print("   ✅ Handled missing values")
 print("   ✅ Removed duplicates")
 print("   ✅ Capped outliers")
