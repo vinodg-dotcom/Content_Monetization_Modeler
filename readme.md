@@ -6,9 +6,6 @@ Machine Learning project to predict YouTube ad revenue using 5 linear regression
 ## Features
 - 5 Linear Regression Models (OLS, Ridge, Lasso, Polynomial, SGD)
 - One-Hot Encoding for categorical variables
-- 31 engineered features
-- Interactive Streamlit dashboard
-- Data leakage prevention
 
 ## Installation
 ```bash
